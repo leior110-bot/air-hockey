@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏒 הוקי אוויר</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Heebo:wght@300;400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cyan: #00f5ff; --purple: #bf00ff; --pink: #ff006e;
+    --green: #39ff14; --bg: #050510;
+    --glass: rgba(255,255,255,0.05); --border: rgba(0,245,255,0.3);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg); font-family: 'Heebo', sans-serif; color: white;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; overflow: hidden;
+  }
+  .bg-canvas { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+  .app {
+    position:relative; z-index:10; width:100%; max-width:900px;
+    padding:10px; display:flex; flex-direction:column; align-items:center; gap:12px;
+  }
+  .screen { display:none; width:100%; flex-direction:column; align-items:center; gap:14px; animation:fadeIn .4s ease; }
+  .screen.active { display:flex; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+
+  .logo {
+    font-family:'Orbitron',monospace; font-size:clamp(2rem,6vw,3.5rem); font-weight:900;
+    background:linear-gradient(135deg,var(--cyan),var(--purple),var(--pink));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 0 30px rgba(0,245,255,0.5)); text-align:center;
+  }
+  .logo-sub { font-size:.9rem; color:rgba(255,255,255,.4); letter-spacing:8px; text-align:center; margin-top:-6px; }
+
+  /* Menu */
+  .menu-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%; max-width:500px; }
+  .menu-btn {
+    background:var(--glass); border:1px solid var(--border); border-radius:16px;
+    padding:20px 16px; cursor:pointer; text-align:center; backdrop-filter:blur(10px);
+    transition:all .25s; overflow:hidden; position:relative;
+  }
+  .menu-btn:hover { border-color:var(--cyan); box-shadow:0 0 20px rgba(0,245,255,.2); transform:translateY(-2px); }
+  .menu-btn:active { transform:scale(.97); }
+  .menu-btn .icon { font-size:2rem; margin-bottom:6px; display:block; }
+  .menu-btn .label { font-size:1rem; font-weight:700; }
+  .menu-btn .desc { font-size:.75rem; color:rgba(255,255,255,.5); margin-top:4px; }
+  .menu-btn.full { grid-column:1/-1; }
+  .menu-btn.online { border-color:rgba(57,255,20,.3); }
+  .menu-btn.online:hover { border-color:var(--green); box-shadow:0 0 20px rgba(57,255,20,.2); }
+
+  /* Online screen */
+  .online-card {
+    background:rgba(10,10,35,.95); border:1px solid var(--border);
+    border-radius:20px; padding:clamp(18px,4vw,32px); width:100%; max-width:420px;
+  }
+  .section-title {
+    font-family:'Orbitron',monospace; font-size:1rem; color:var(--cyan);
+    text-align:center; letter-spacing:2px; text-transform:uppercase; margin-bottom:16px;
+  }
+  .label-sm { font-size:.72rem; color:rgba(255,255,255,.4); letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; display:block; }
+  .input {
+    width:100%; background:var(--glass); border:1px solid rgba(255,255,255,.1);
+    border-radius:12px; padding:12px 16px; color:white; font-family:'Heebo',sans-serif;
+    font-size:1rem; outline:none; transition:border-color .2s; text-align:right; margin-bottom:14px;
+  }
+  .input:focus { border-color:var(--cyan); box-shadow:0 0 12px rgba(0,245,255,.15); }
+  .input::placeholder { color:rgba(255,255,255,.2); }
+
+  /* Tabs */
+  .tabs { display:flex; background:var(--glass); border-radius:12px; padding:4px; margin-bottom:16px; border:1px solid rgba(255,255,255,.08); }
+  .tab { flex:1; background:none; border:none; color:rgba(255,255,255,.4); padding:10px; border-radius:10px; cursor:pointer; font-family:'Heebo',sans-serif; font-size:.9rem; font-weight:700; transition:all .2s; }
+  .tab.active { background:linear-gradient(135deg,var(--cyan),var(--purple)); color:white; }
+
+  /* Code display */
+  .code-box {
+    background:linear-gradient(135deg,rgba(0,245,255,.08),rgba(191,0,255,.08));
+    border:2px solid var(--border); border-radius:16px; padding:18px; text-align:center; margin-bottom:14px;
+  }
+  .code-digits {
+    font-family:'Orbitron',monospace; font-size:clamp(2rem,8vw,2.8rem); font-weight:900;
+    letter-spacing:10px; color:var(--cyan); text-shadow:0 0 25px var(--cyan);
+  }
+  .code-hint { font-size:.72rem; color:rgba(255,255,255,.35); margin-top:6px; letter-spacing:1px; }
+
+  /* Waiting */
+  .waiting { display:flex; align-items:center; gap:10px; justify-content:center; color:rgba(255,255,255,.5); font-size:.85rem; margin:12px 0; }
+  .dots span { display:inline-block; width:6px; height:6px; background:var(--cyan); border-radius:50%; animation:bounce 1.2s infinite; }
+  .dots span:nth-child(2){animation-delay:.2s} .dots span:nth-child(3){animation-delay:.4s}
+  @keyframes bounce{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+  /* Share row */
+  .share-row { display:flex; gap:8px; margin-bottom:12px; }
+  .share-btn {
+    flex:1; background:var(--glass); border:1px solid rgba(255,255,255,.1); border-radius:10px;
+    padding:10px 6px; cursor:pointer; font-family:'Heebo',sans-serif; color:rgba(255,255,255,.6);
+    font-size:.78rem; transition:all .2s; text-align:center;
+  }
+  .share-btn:hover { border-color:var(--cyan); color:white; }
+  .share-btn .si { font-size:1.1rem; display:block; margin-bottom:3px; }
+
+  /* Code input */
+  .code-input {
+    width:100%; background:var(--glass); border:1px solid rgba(255,255,255,.1);
+    border-radius:12px; padding:14px; color:white; font-family:'Orbitron',monospace;
+    font-size:1.4rem; font-weight:700; letter-spacing:8px; text-align:center; outline:none;
+    transition:all .2s; margin-bottom:12px; text-transform:uppercase;
+  }
+  .code-input:focus { border-color:var(--cyan); box-shadow:0 0 12px rgba(0,245,255,.15); }
+  .code-input::placeholder { font-size:.85rem; letter-spacing:2px; color:rgba(255,255,255,.2); font-family:'Heebo',sans-serif; }
+
+  /* Status badge */
+  .status-badge {
+    display:flex; align-items:center; gap:8px; justify-content:center;
+    padding:8px 16px; border-radius:20px; font-size:.8rem; margin-bottom:10px;
+  }
+  .status-badge.connecting { background:rgba(255,215,0,.08); border:1px solid rgba(255,215,0,.3); color:#ffd700; }
+  .status-badge.connected { background:rgba(57,255,20,.08); border:1px solid rgba(57,255,20,.3); color:var(--green); }
+  .status-badge.error { background:rgba(255,0,110,.08); border:1px solid rgba(255,0,110,.3); color:var(--pink); }
+  .dot-blink { width:7px; height:7px; border-radius:50%; animation:blink 1s infinite; }
+  .dot-blink.yellow { background:#ffd700; }
+  .dot-blink.green { background:var(--green); box-shadow:0 0 6px var(--green); }
+  .dot-blink.red { background:var(--pink); }
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* Buttons */
+  .btn {
+    width:100%; padding:13px; border-radius:12px; border:none;
+    font-family:'Heebo',sans-serif; font-size:1rem; font-weight:700;
+    cursor:pointer; transition:all .2s; letter-spacing:1px; margin-bottom:8px;
+  }
+  .btn-primary { background:linear-gradient(135deg,var(--cyan),var(--purple)); color:white; box-shadow:0 6px 20px rgba(0,245,255,.2); }
+  .btn-primary:hover { transform:translateY(-2px); box-shadow:0 10px 30px rgba(0,245,255,.3); }
+  .btn-primary:active { transform:scale(.98); }
+  .btn-secondary { background:var(--glass); border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.6); }
+  .btn-secondary:hover { border-color:rgba(255,255,255,.3); color:white; }
+  .btn-secondary:last-child { margin-bottom:0; }
+  .btn:disabled { opacity:.4; cursor:not-allowed; transform:none !important; }
+
+  .back-btn {
+    background:none; border:1px solid rgba(255,255,255,.15); border-radius:10px;
+    padding:8px 16px; color:rgba(255,255,255,.5); cursor:pointer;
+    font-family:'Heebo',sans-serif; font-size:.85rem; transition:all .2s; align-self:flex-start;
+  }
+  .back-btn:hover { color:white; border-color:rgba(255,255,255,.3); }
+
+  /* SP / Local setup */
+  .diff-row { display:flex; gap:10px; width:100%; max-width:500px; }
+  .diff-btn {
+    flex:1; background:var(--glass); border:1px solid rgba(255,255,255,.1);
+    border-radius:12px; padding:12px 8px; cursor:pointer; text-align:center;
+    transition:all .2s; font-family:'Heebo',sans-serif; color:rgba(255,255,255,.6); font-size:.9rem;
+  }
+  .diff-btn.selected { border-color:var(--cyan); color:white; background:rgba(0,245,255,.1); box-shadow:0 0 10px rgba(0,245,255,.2); }
+  .score-select { display:flex; align-items:center; gap:12px; font-size:.9rem; color:rgba(255,255,255,.6); }
+  .score-select select { background:var(--glass); border:1px solid var(--border); border-radius:8px; padding:6px 12px; color:white; font-family:'Heebo',sans-serif; cursor:pointer; }
+  .score-select select option { background:#050510; }
+  .player-info-row { display:flex; gap:12px; width:100%; max-width:500px; }
+  .player-card { flex:1; background:var(--glass); border:1px solid var(--border); border-radius:12px; padding:12px; text-align:center; }
+  .player-card.p2 { border-color:rgba(191,0,255,.3); }
+  .player-card .p-icon { font-size:1.5rem; }
+  .player-card .p-name { font-size:.85rem; font-weight:700; margin-top:4px; }
+  .player-card .p-ctrl { font-size:.7rem; color:rgba(255,255,255,.4); margin-top:2px; }
+
+  /* Game screen */
+  .score-bar {
+    width:100%; display:flex; align-items:center; justify-content:space-between;
+    background:var(--glass); border:1px solid var(--border); border-radius:16px;
+    padding:10px 20px; backdrop-filter:blur(10px);
+  }
+  .score-player { text-align:center; min-width:100px; }
+  .score-name { font-size:.72rem; color:rgba(255,255,255,.5); text-transform:uppercase; letter-spacing:2px; }
+  .score-num { font-family:'Orbitron',monospace; font-size:2.5rem; font-weight:900; line-height:1; }
+  .score-num.cyan { color:var(--cyan); text-shadow:0 0 20px var(--cyan); }
+  .score-num.purple { color:var(--purple); text-shadow:0 0 20px var(--purple); }
+  .timer-display { font-family:'Orbitron',monospace; font-size:1.2rem; font-weight:700; color:rgba(255,255,255,.7); text-align:center; }
+
+  .canvas-wrap { width:100%; border-radius:20px; overflow:hidden; border:2px solid var(--border); box-shadow:0 0 40px rgba(0,245,255,.1); position:relative; }
+  #gameCanvas { display:block; width:100%; height:auto; touch-action:none; }
+
+  /* Online latency indicator */
+  .ping-bar {
+    display:flex; align-items:center; gap:6px; font-size:.68rem; color:rgba(255,255,255,.3);
+  }
+  .ping-dot { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 5px var(--green); }
+
+  .controls-hint { display:flex; gap:20px; font-size:.75rem; color:rgba(255,255,255,.3); }
+
+  /* Overlay */
+  .overlay { display:none; position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(5,5,16,.9); backdrop-filter:blur(8px); align-items:center; justify-content:center; border-radius:18px; z-index:20; }
+  .overlay.active { display:flex; }
+  .overlay-box { text-align:center; padding:28px 36px; background:rgba(5,5,30,.95); border:1px solid var(--border); border-radius:20px; min-width:260px; }
+  .overlay-title { font-family:'Orbitron',monospace; font-size:1.8rem; font-weight:900; margin-bottom:8px; }
+  .overlay-title.win { color:var(--cyan); text-shadow:0 0 30px var(--cyan); }
+  .overlay-title.lose { color:var(--pink); text-shadow:0 0 30px var(--pink); }
+  .overlay-title.paused { color:white; }
+  .overlay-score { font-family:'Orbitron',monospace; font-size:2.2rem; margin:10px 0; display:flex; gap:10px; align-items:center; justify-content:center; }
+  .overlay-btns { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+
+  /* Goal flash */
+  @keyframes goalFlash { 0%{opacity:0;transform:translate(-50%,-50%) scale(.5)} 30%{opacity:1;transform:translate(-50%,-50%) scale(1.1)} 70%{opacity:1;transform:translate(-50%,-50%) scale(1)} 100%{opacity:0;transform:translate(-50%,-50%) scale(.8)} }
+  .goal-flash { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-family:'Orbitron',monospace; font-size:3.5rem; font-weight:900; pointer-events:none; display:none; z-index:15; white-space:nowrap; }
+  .goal-flash.show { display:block; animation:goalFlash 1.2s ease forwards; }
+  .goal-flash.p1 { color:var(--cyan); text-shadow:0 0 40px var(--cyan); }
+  .goal-flash.p2 { color:var(--purple); text-shadow:0 0 40px var(--purple); }
+
+  /* Toast */
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(80px); background:rgba(10,10,35,.95); border:1px solid var(--cyan); border-radius:12px; padding:10px 20px; font-size:.85rem; color:var(--cyan); transition:transform .3s; white-space:nowrap; z-index:200; }
+  .toast.show { transform:translateX(-50%) translateY(0); }
+
+  /* Online role indicator */
+  .role-tag { font-size:.7rem; padding:3px 10px; border-radius:20px; display:inline-block; margin-bottom:8px; }
+  .role-tag.host { background:rgba(0,245,255,.1); border:1px solid rgba(0,245,255,.3); color:var(--cyan); }
+  .role-tag.guest { background:rgba(191,0,255,.1); border:1px solid rgba(191,0,255,.3); color:var(--purple); }
+</style>
+</head>
+<body>
+<canvas class="bg-canvas" id="bgCanvas"></canvas>
+<div class="app">
+
+  <!-- MENU -->
+  <div class="screen active" id="menuScreen">
+    <div><div class="logo">🏒 HOCKEY</div><div class="logo-sub">AIR HOCKEY</div></div>
+    <div class="menu-grid">
+      <button class="menu-btn" onclick="showScreen('spScreen')">
+        <span class="icon">🤖</span><div class="label">נגד מחשב</div><div class="desc">AI חכם</div>
+      </button>
+      <button class="menu-btn" onclick="showScreen('localScreen')">
+        <span class="icon">👥</span><div class="label">2 שחקנים</div><div class="desc">על אותו מכשיר</div>
+      </button>
+      <button class="menu-btn online full" onclick="showScreen('onlineScreen')">
+        <span class="icon">🌐</span><div class="label">מצב חברים — אונליין</div><div class="desc">שחק עם חבר מכל מקום דרך קוד חדר</div>
+      </button>
+    </div>
+  </div>
+
+  <!-- SP SETUP -->
+  <div class="screen" id="spScreen">
+    <button class="back-btn" onclick="showScreen('menuScreen')">← חזרה</button>
+    <div style="font-family:'Orbitron',monospace;color:var(--cyan);letter-spacing:2px;">נגד מחשב</div>
+    <div class="diff-row">
+      <button class="diff-btn selected" id="diff-easy" onclick="setDiff('easy')">😊 קל</button>
+      <button class="diff-btn" id="diff-medium" onclick="setDiff('medium')">😤 בינוני</button>
+      <button class="diff-btn" id="diff-hard" onclick="setDiff('hard')">🔥 קשה</button>
+    </div>
+    <div class="score-select"><span>ניצחון ב:</span>
+      <select id="spScoreLimit"><option value="5">5 שערים</option><option value="7" selected>7 שערים</option><option value="10">10 שערים</option></select>
+    </div>
+    <button class="btn btn-primary" onclick="startGame('sp')">🎮 התחל</button>
+  </div>
+
+  <!-- LOCAL SETUP -->
+  <div class="screen" id="localScreen">
+    <button class="back-btn" onclick="showScreen('menuScreen')">← חזרה</button>
+    <div style="font-family:'Orbitron',monospace;color:var(--cyan);letter-spacing:2px;">2 שחקנים</div>
+    <div class="player-info-row">
+      <div class="player-card"><div class="p-icon">🔵</div><div class="p-name" style="color:var(--cyan)">שחקן 1</div><div class="p-ctrl">עכבר / מגע</div></div>
+      <div class="player-card p2"><div class="p-icon">🟣</div><div class="p-name" style="color:var(--purple)">שחקן 2</div><div class="p-ctrl">WASD / מגע</div></div>
+    </div>
+    <div class="score-select"><span>ניצחון ב:</span>
+      <select id="localScoreLimit"><option value="5">5 שערים</option><option value="7" selected>7 שערים</option><option value="10">10 שערים</option></select>
+    </div>
+    <button class="btn btn-primary" onclick="startGame('local')">🎮 התחל</button>
+  </div>
+
+  <!-- ONLINE SCREEN -->
+  <div class="screen" id="onlineScreen">
+    <button class="back-btn" onclick="onlineBack()">← חזרה</button>
+    <div class="online-card">
+      <div class="section-title">🌐 מצב חברים</div>
+
+      <span class="label-sm">השם שלך</span>
+      <input class="input" id="onlineName" placeholder="הכנס שם..." maxlength="16">
+
+      <div class="tabs">
+        <button class="tab active" id="tabCreate" onclick="switchOnlineTab('create')">✦ צור חדר</button>
+        <button class="tab" id="tabJoin" onclick="switchOnlineTab('join')">→ הצטרף</button>
+      </div>
+
+      <!-- CREATE -->
+      <div id="panelCreate">
+        <div id="beforeCreate">
+          <button class="btn btn-primary" onclick="createRoom()">⚡ צור חדר חדש</button>
+        </div>
+        <div id="afterCreate" style="display:none">
+          <div id="peerStatus" class="status-badge connecting">
+            <div class="dot-blink yellow"></div> מתחבר לשרת...
+          </div>
+          <div class="code-box">
+            <div class="code-hint">קוד החדר שלך</div>
+            <div class="code-digits" id="roomCodeDisplay">----</div>
+            <div class="code-hint">שלח לחבר כדי שיצטרף</div>
+          </div>
+          <div class="share-row">
+            <button class="share-btn" onclick="copyCode()"><span class="si">📋</span>העתק קוד</button>
+            <button class="share-btn" onclick="shareWhatsApp()"><span class="si">💬</span>וואטסאפ</button>
+            <button class="share-btn" onclick="shareFullLink()"><span class="si">🔗</span>קישור</button>
+          </div>
+          <div class="waiting" id="waitingForGuest">
+            <div class="dots"><span></span><span></span><span></span></div>
+            ממתין לחבר להצטרף...
+          </div>
+          <button class="btn btn-secondary" onclick="cancelRoom()">✕ בטל</button>
+        </div>
+      </div>
+
+      <!-- JOIN -->
+      <div id="panelJoin" style="display:none">
+        <input class="code-input" id="joinCodeInput" placeholder="הכנס קוד..." maxlength="6"
+          oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')joinRoom()">
+        <div id="joinStatus" style="display:none" class="status-badge connecting">
+          <div class="dot-blink yellow"></div> מתחבר...
+        </div>
+        <button class="btn btn-primary" id="joinBtn" onclick="joinRoom()">🚀 הצטרף למשחק</button>
+        <button class="btn btn-secondary" onclick="pasteCode()">📋 הדבק קוד</button>
+      </div>
+
+      <div class="score-select" style="margin-top:12px; justify-content:center;">
+        <span>ניצחון ב:</span>
+        <select id="onlineScoreLimit"><option value="5">5 שערים</option><option value="7" selected>7 שערים</option><option value="10">10 שערים</option></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div class="screen" id="gameScreen">
+    <div class="score-bar">
+      <!-- MY side — always left -->
+      <div class="score-player">
+        <div class="score-name" id="myLabel">אתה</div>
+        <div class="score-num cyan" id="myScore">0</div>
+        <div style="font-size:.6rem;color:rgba(255,255,255,.25);margin-top:2px;" id="mySide">← הצד שלך</div>
+      </div>
+      <div style="text-align:center">
+        <div class="timer-display">—</div>
+        <div style="font-size:.68rem;color:rgba(255,255,255,.3);margin-top:2px;" id="scoreGoalDisplay"></div>
+        <div class="ping-bar" id="pingBar" style="display:none;justify-content:center;margin-top:4px;">
+          <div class="ping-dot"></div><span id="pingVal">--ms</span>
+        </div>
+      </div>
+      <!-- OPPONENT side — always right -->
+      <div class="score-player">
+        <div class="score-name" id="oppLabel">יריב</div>
+        <div class="score-num purple" id="oppScore">0</div>
+        <div style="font-size:.6rem;color:rgba(255,255,255,.25);margin-top:2px;" id="oppSide">הצד שלו →</div>
+      </div>
+    </div>
+
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="gameCanvas"></canvas>
+      <div class="goal-flash" id="goalFlash">⚡ שער!</div>
+
+      <div class="overlay" id="pauseOverlay">
+        <div class="overlay-box">
+          <div class="overlay-title paused">⏸ מושהה</div>
+          <div class="overlay-btns">
+            <button class="btn btn-primary" onclick="resumeGame()">▶ המשך</button>
+            <button class="btn btn-secondary" onclick="leaveGame()">🏠 תפריט</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="gameOverOverlay">
+        <div class="overlay-box">
+          <div class="overlay-title" id="goTitle">ניצחון!</div>
+          <div class="overlay-score">
+            <span class="score-num cyan" id="goScore1">0</span>
+            <span style="color:rgba(255,255,255,.3)">:</span>
+            <span class="score-num purple" id="goScore2">0</span>
+          </div>
+          <div id="goSub" style="color:rgba(255,255,255,.5);font-size:.85rem;margin-top:4px;"></div>
+          <div class="overlay-btns">
+            <button class="btn btn-primary" onclick="restartGame()">🔄 שחק שוב</button>
+            <button class="btn btn-secondary" onclick="leaveGame()">🏠 תפריט</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Online disconnected -->
+      <div class="overlay" id="disconnectOverlay">
+        <div class="overlay-box">
+          <div class="overlay-title lose">📡 התנתק</div>
+          <div style="color:rgba(255,255,255,.5);font-size:.85rem;margin:10px 0;">החבר שלך התנתק מהמשחק</div>
+          <div class="overlay-btns">
+            <button class="btn btn-secondary" onclick="leaveGame()">🏠 תפריט</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
+      <span id="hint1" style="font-size:.72rem;color:rgba(255,255,255,.3)">🖱️ עכבר / מגע</span>
+      <span id="roleDisplay" class="role-tag" style="display:none"></span>
+      <span style="font-size:.72rem;color:rgba(255,255,255,.3)">⎵ = השהה</span>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== STARFIELD =====
+(function(){
+  const c=document.getElementById('bgCanvas'),ctx=c.getContext('2d');
+  let stars=[];
+  function resize(){c.width=window.innerWidth;c.height=window.innerHeight;}
+  window.addEventListener('resize',resize);resize();
+  for(let i=0;i<120;i++)stars.push({x:Math.random(),y:Math.random(),r:Math.random()*1.5+.3,a:Math.random()});
+  function draw(){
+    ctx.fillStyle='#050510';ctx.fillRect(0,0,c.width,c.height);
+    stars.forEach(s=>{s.a+=.005;ctx.globalAlpha=.3+.3*Math.sin(s.a);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x*c.width,s.y*c.height,s.r,0,Math.PI*2);ctx.fill();});
+    ctx.globalAlpha=1;requestAnimationFrame(draw);
+  }draw();
+})();
+
+// ===== STATE =====
+let gameMode='sp', difficulty='easy', scoreLimit=7;
+let score1=0, score2=0, gamePaused=false, gameRunning=false, animId=null;
+let puck, paddle1, paddle2, W, H;
+const PUCK_R=0.045, PAD_R=0.07, FRICTION=0.995;
+let aiTarget={x:0,y:0}, aiSpeed=6;
+let scoringLock=false;
+
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+
+// ===== PEERJS ONLINE =====
+let peer=null, conn=null, isHost=false, myName='שחקן', opponentName='יריב';
+let pingInterval=null, pingStart=0, lastPing=0;
+let onlineReady=false;
+
+function initPeer(asHost, roomCode) {
+  // Use a unique prefix to avoid ID collisions with other games
+  const peerId = asHost ? 'hock25-' + roomCode : null;
+
+  // Try PeerJS cloud server (0.peerjs.com) which is the most reliable free option
+  peer = new Peer(peerId, {
+    host: '0.peerjs.com',
+    port: 443,
+    path: '/',
+    secure: true,
+    debug: 0,
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' }
+      ]
+    }
+  });
+
+  // Timeout if can't connect in 10 seconds
+  const timeout = setTimeout(() => {
+    if (!peer.open) {
+      peer.destroy();
+      const msg = 'לא ניתן להתחבר לשרת — בדוק חיבור אינטרנט';
+      if (asHost) setStatus('create', 'error', msg);
+      else setStatus('join', 'error', msg);
+      showToast('❌ ' + msg);
+      if (asHost) {
+        document.getElementById('afterCreate').style.display='none';
+        document.getElementById('beforeCreate').style.display='block';
+      } else {
+        document.getElementById('joinBtn').disabled=false;
+        document.getElementById('joinStatus').style.display='none';
+      }
+    }
+  }, 10000);
+
+  peer.on('open', id => {
+    clearTimeout(timeout);
+    if (asHost) {
+      setStatus('create', 'waiting', 'ממתין לחבר...');
+      document.getElementById('roomCodeDisplay').textContent = roomCode;
+    } else {
+      setStatus('join', 'connecting', 'מתחבר למארח...');
+      conn = peer.connect('hock25-' + roomCode, { reliable: false, serialization: 'json' });
+      setupConn(conn, false);
+    }
+  });
+
+  peer.on('connection', c => {
+    if (isHost) {
+      conn = c;
+      setupConn(conn, true);
+    }
+  });
+
+  peer.on('error', err => {
+    const msg = err.type === 'peer-unavailable' ? 'קוד לא נמצא — בדוק שהמארח פתוח' : 'שגיאת חיבור: ' + err.type;
+    if (isHost) setStatus('create', 'error', msg);
+    else setStatus('join', 'error', msg);
+    showToast('❌ ' + msg);
+    if (!isHost) {
+      document.getElementById('joinStatus').style.display = 'flex';
+      document.getElementById('joinBtn').disabled = false;
+    }
+  });
+}
+
+function setupConn(c, hosting) {
+  c.on('open', () => {
+    onlineReady = true;
+    if (hosting) {
+      setStatus('create', 'connected', 'חבר התחבר! מתחיל משחק...');
+      // Send start signal with score limit & names
+      c.send({ type:'start', scoreLimit: parseInt(document.getElementById('onlineScoreLimit').value), hostName: myName });
+      setTimeout(() => launchOnlineGame(), 800);
+    } else {
+      setStatus('join', 'connected', 'מחובר!');
+    }
+  });
+
+  c.on('data', d => handleNetData(d));
+
+  c.on('close', () => {
+    onlineReady = false;
+    if (gameRunning) {
+      document.getElementById('disconnectOverlay').classList.add('active');
+    } else {
+      showToast('📡 החיבור נסגר');
+      if (!gameRunning) showScreen('menuScreen');
+    }
+  });
+
+  c.on('error', err => showToast('⚠️ שגיאת חיבור'));
+}
+
+function handleNetData(d) {
+  if (!d || !d.type) return;
+  switch(d.type) {
+    case 'start':
+      // Guest receives start signal
+      scoreLimit = d.scoreLimit || 7;
+      opponentName = d.hostName || 'מארח';
+      myName = document.getElementById('onlineName').value.trim() || 'שחקן';
+      // Guest sends their name back
+      conn.send({ type:'guestName', name: myName });
+      setTimeout(() => launchOnlineGame(), 400);
+      break;
+
+    case 'guestName':
+      opponentName = d.name || 'אורח';
+      break;
+
+    case 'state':
+      // Host sends authoritative game state; guest receives and renders
+      if (!isHost && puck) {
+        puck.x = d.px * W; puck.y = d.py * H;
+        puck.vx = d.pvx * W; puck.vy = d.pvy * H;
+        paddle2.x = d.p2x * W; paddle2.y = d.p2y * H;
+      }
+      break;
+
+    case 'paddle':
+      // Guest sends their paddle position; host receives
+      if (isHost && paddle2) {
+        paddle2.x = d.x * W; paddle2.y = d.y * H;
+        paddle2.vx = d.vx * W; paddle2.vy = d.vy * H;
+      }
+      break;
+
+    case 'goal':
+      if (!isHost) {
+        // Authoritative goal from host
+        applyGoal(d.player, false);
+      }
+      break;
+
+    case 'ping':
+      conn.send({ type:'pong', t: d.t });
+      break;
+
+    case 'pong':
+      lastPing = Date.now() - d.t;
+      document.getElementById('pingVal').textContent = lastPing + 'ms';
+      break;
+
+    case 'restart':
+      if (!isHost) {
+        score1=0; score2=0;
+        document.getElementById('score1').textContent='0';
+        document.getElementById('score2').textContent='0';
+        initObjects(); hideOverlays(); gameRunning=true;
+      }
+      break;
+  }
+}
+
+function setStatus(panel, type, msg) {
+  const el = panel === 'create' ? document.getElementById('peerStatus') : document.getElementById('joinStatus');
+  el.style.display = 'flex';
+  el.className = 'status-badge ' + type;
+  const dotClass = type==='connected'?'green':type==='error'?'red':'yellow';
+  el.innerHTML = `<div class="dot-blink ${dotClass}"></div> ${msg}`;
+}
+
+function createRoom() {
+  myName = document.getElementById('onlineName').value.trim() || 'שחקן';
+  isHost = true;
+  const code = generateCode();
+  currentRoomCode = code;
+  setStatus('create', 'connecting', 'מתחבר לשרת...');
+  document.getElementById('afterCreate').style.display = 'block';
+  document.getElementById('beforeCreate').style.display = 'none';
+  document.getElementById('roomCodeDisplay').textContent = '...';
+  initPeer(true, code);
+}
+
+let currentRoomCode = '';
+
+function joinRoom() {
+  const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+  if (code.length < 4) { showToast('⚠️ הכנס קוד של 4 תווים'); return; }
+  myName = document.getElementById('onlineName').value.trim() || 'שחקן';
+  isHost = false;
+  currentRoomCode = code;
+  document.getElementById('joinBtn').disabled = true;
+  document.getElementById('joinStatus').style.display = 'flex';
+  initPeer(false, code);
+}
+
+function launchOnlineGame() {
+  scoreLimit = parseInt(document.getElementById('onlineScoreLimit').value);
+  score1=0; score2=0;
+  // Always show MY name on left, opponent on right
+  document.getElementById('myLabel').textContent = myName;
+  document.getElementById('oppLabel').textContent = opponentName;
+  document.getElementById('myScore').textContent = '0';
+  document.getElementById('oppScore').textContent = '0';
+  document.getElementById('mySide').textContent = isHost ? '← צד שמאל' : '← צד ימין';
+  document.getElementById('oppSide').textContent = isHost ? 'צד ימין →' : 'צד שמאל →';
+  document.getElementById('scoreGoalDisplay').textContent='עד '+scoreLimit+' שערים';
+  document.getElementById('pingBar').style.display='flex';
+  const rd = document.getElementById('roleDisplay');
+  rd.style.display='inline-block';
+  rd.className='role-tag '+(isHost?'host':'guest');
+  rd.textContent = isHost ? '🟦 מארח' : '🟣 אורח';
+  document.getElementById('hint1').textContent = isHost ? '🖱️ שחק בצד שמאל' : '🖱️ שחק בצד ימין';
+
+  showScreen('gameScreen');
+  hideOverlays();
+  setTimeout(()=>{
+    resizeCanvas(); initObjects();
+    if (!isHost) {
+      [paddle1.x, paddle2.x] = [paddle2.x, paddle1.x];
+    }
+    gameMode='online'; gameRunning=true; gamePaused=false;
+    if(animId) cancelAnimationFrame(animId);
+    gameLoop();
+    pingInterval = setInterval(()=>{ if(conn&&onlineReady){ pingStart=Date.now(); conn.send({type:'ping',t:pingStart}); } }, 2000);
+  }, 100);
+}
+
+function cancelRoom() {
+  if(peer){ peer.destroy(); peer=null; }
+  conn=null; onlineReady=false;
+  document.getElementById('afterCreate').style.display='none';
+  document.getElementById('beforeCreate').style.display='block';
+  currentRoomCode='';
+}
+
+function onlineBack() {
+  cancelRoom();
+  showScreen('menuScreen');
+}
+
+function generateCode() {
+  return Array.from({length:4}, ()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*33)]).join('');
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(currentRoomCode).then(()=>showToast('✓ קוד הועתק!')).catch(()=>showToast('קוד: '+currentRoomCode));
+}
+
+function shareWhatsApp() {
+  const url = window.location.href.split('?')[0]+'?join='+currentRoomCode;
+  const name = document.getElementById('onlineName').value.trim() || 'שחקן';
+  const msg = encodeURIComponent('🏒 '+name+' מזמין/ת אותך לשחק הוקי אוויר!\nלחץ להצטרפות:\n'+url);
+  window.open('https://wa.me/?text='+msg,'_blank');
+}
+
+function shareFullLink() {
+  const url = window.location.href.split('?')[0]+'?join='+currentRoomCode;
+  navigator.clipboard.writeText(url).then(()=>showToast('🔗 קישור הועתק!')).catch(()=>{ try{prompt('העתק:',url);}catch(e){} });
+}
+
+async function pasteCode() {
+  try {
+    const t = await navigator.clipboard.readText();
+    document.getElementById('joinCodeInput').value = t.trim().toUpperCase().slice(0,6);
+    showToast('✓ קוד הודבק');
+  } catch { showToast('הדבק ידנית את הקוד'); }
+}
+
+function switchOnlineTab(tab) {
+  document.getElementById('tabCreate').classList.toggle('active', tab==='create');
+  document.getElementById('tabJoin').classList.toggle('active', tab==='join');
+  document.getElementById('panelCreate').style.display = tab==='create'?'block':'none';
+  document.getElementById('panelJoin').style.display = tab==='join'?'block':'none';
+}
+
+// ===== SCREEN NAV =====
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function leaveGame() {
+  stopGame();
+  if(pingInterval){clearInterval(pingInterval);pingInterval=null;}
+  if(conn){conn.close();conn=null;}
+  if(peer){peer.destroy();peer=null;}
+  onlineReady=false;
+  document.getElementById('pingBar').style.display='none';
+  document.getElementById('roleDisplay').style.display='none';
+  // Reset online UI
+  document.getElementById('afterCreate').style.display='none';
+  document.getElementById('beforeCreate').style.display='block';
+  document.getElementById('joinBtn').disabled=false;
+  document.getElementById('joinStatus').style.display='none';
+  document.getElementById('joinCodeInput').value='';
+  showScreen('menuScreen');
+}
+
+function setDiff(d) {
+  difficulty=d;
+  document.querySelectorAll('.diff-btn').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('diff-'+d).classList.add('selected');
+}
+
+// ===== GAME START =====
+function startGame(mode) {
+  gameMode=mode;
+  scoreLimit = parseInt(document.getElementById(mode==='sp'?'spScoreLimit':'localScoreLimit').value);
+  score1=0; score2=0;
+  document.getElementById('myScore').textContent='0';
+  document.getElementById('oppScore').textContent='0';
+  document.getElementById('scoreGoalDisplay').textContent='עד '+scoreLimit+' שערים';
+  document.getElementById('pingBar').style.display='none';
+  document.getElementById('roleDisplay').style.display='none';
+  document.getElementById('mySide').textContent='';
+  document.getElementById('oppSide').textContent='';
+  if(mode==='sp'){
+    document.getElementById('myLabel').textContent='אתה';
+    document.getElementById('oppLabel').textContent='מחשב 🤖';
+    document.getElementById('hint1').textContent='🖱️ עכבר / מגע';
+    aiSpeed=difficulty==='easy'?4:difficulty==='medium'?7:11;
+  } else {
+    document.getElementById('myLabel').textContent='שחקן 1';
+    document.getElementById('oppLabel').textContent='שחקן 2';
+    document.getElementById('hint1').textContent='🖱️ עכבר = שחקן 1 | WASD = שחקן 2';
+  }
+  showScreen('gameScreen');
+  hideOverlays();
+  setTimeout(()=>{ resizeCanvas(); initObjects(); gameRunning=true; gamePaused=false; if(animId)cancelAnimationFrame(animId); gameLoop(); },50);
+}
+
+function resizeCanvas() {
+  const wrap=document.getElementById('canvasWrap');
+  W=wrap.clientWidth; H=Math.round(W*0.55);
+  canvas.width=W; canvas.height=H;
+}
+
+function initObjects() {
+  puck={x:W/2,y:H/2,vx:(Math.random()>.5?1:-1)*3,vy:(Math.random()>.5?1:-1)*3,r:W*PUCK_R};
+  paddle1={x:W*0.25,y:H/2,r:W*PAD_R,vx:0,vy:0};
+  paddle2={x:W*0.75,y:H/2,r:W*PAD_R,vx:0,vy:0};
+  aiTarget={x:W*0.75,y:H/2};
+}
+
+function stopGame() { gameRunning=false; if(animId){cancelAnimationFrame(animId);animId=null;} }
+function hideOverlays() {
+  ['pauseOverlay','gameOverOverlay','disconnectOverlay'].forEach(id=>document.getElementById(id).classList.remove('active'));
+}
+
+// ===== INPUT =====
+let mousePos={x:0,y:0}, p2Keys={w:false,a:false,s:false,d:false}, touches={}, p2Touch=null;
+
+canvas.addEventListener('mousemove',e=>{
+  const rect=canvas.getBoundingClientRect(), sx=canvas.width/rect.width, sy=canvas.height/rect.height;
+  mousePos.x=(e.clientX-rect.left)*sx; mousePos.y=(e.clientY-rect.top)*sy;
+});
+
+canvas.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const rect=canvas.getBoundingClientRect(), sx=canvas.width/rect.width, sy=canvas.height/rect.height;
+  for(const t of e.changedTouches){
+    const tx=(t.clientX-rect.left)*sx, ty=(t.clientY-rect.top)*sy;
+    if(gameMode==='online'){
+      // Online: always control paddle1
+      touches[t.identifier]=1; mousePos.x=tx; mousePos.y=ty;
+    } else {
+      const d1=Math.hypot(tx-paddle1.x,ty-paddle1.y), d2=Math.hypot(tx-paddle2.x,ty-paddle2.y);
+      if(d1<d2){ touches[t.identifier]=1; mousePos.x=tx; mousePos.y=ty; }
+      else { touches[t.identifier]=2; p2Touch={x:tx,y:ty}; }
+    }
+  }
+},{passive:false});
+
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const rect=canvas.getBoundingClientRect(), sx=canvas.width/rect.width, sy=canvas.height/rect.height;
+  for(const t of e.changedTouches){
+    const tx=(t.clientX-rect.left)*sx, ty=(t.clientY-rect.top)*sy;
+    if(touches[t.identifier]===1){ mousePos.x=tx; mousePos.y=ty; }
+    else if(touches[t.identifier]===2&&gameMode==='local'){ p2Touch={x:tx,y:ty}; }
+  }
+},{passive:false});
+
+canvas.addEventListener('touchend',e=>{ for(const t of e.changedTouches)delete touches[t.identifier]; });
+
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'){e.preventDefault();togglePause();return;}
+  if(e.key==='w'||e.key==='W')p2Keys.w=true;
+  if(e.key==='a'||e.key==='A')p2Keys.a=true;
+  if(e.key==='s'||e.key==='S')p2Keys.s=true;
+  if(e.key==='d'||e.key==='D')p2Keys.d=true;
+});
+document.addEventListener('keyup',e=>{
+  if(e.key==='w'||e.key==='W')p2Keys.w=false;
+  if(e.key==='a'||e.key==='A')p2Keys.a=false;
+  if(e.key==='s'||e.key==='S')p2Keys.s=false;
+  if(e.key==='d'||e.key==='D')p2Keys.d=false;
+});
+
+// ===== PAUSE =====
+function togglePause() {
+  if(!gameRunning)return;
+  gamePaused=!gamePaused;
+  document.getElementById('pauseOverlay').classList.toggle('active',gamePaused);
+}
+function resumeGame() { gamePaused=false; document.getElementById('pauseOverlay').classList.remove('active'); }
+
+// ===== GAME LOOP =====
+let lastTime=0;
+function gameLoop(ts=0) {
+  if(!gameRunning)return;
+  const dt=Math.min((ts-lastTime)/16.67,3); lastTime=ts;
+  if(!gamePaused){ update(dt); sendNetState(); draw(); }
+  animId=requestAnimationFrame(gameLoop);
+}
+
+// Send state over network
+let netSendTick=0;
+function sendNetState() {
+  if(gameMode!=='online'||!conn||!onlineReady)return;
+  netSendTick++;
+  if(isHost) {
+    // Host sends authoritative puck + host paddle every 2 frames
+    if(netSendTick%2===0) {
+      conn.send({ type:'state', px:puck.x/W, py:puck.y/H, pvx:puck.vx/W, pvy:puck.vy/H, p2x:paddle2.x/W, p2y:paddle2.y/H });
+    }
+  } else {
+    // Guest sends their paddle every frame
+    conn.send({ type:'paddle', x:paddle1.x/W, y:paddle1.y/H, vx:paddle1.vx/W, vy:paddle1.vy/H });
+  }
+}
+
+function update(dt) {
+  if(!puck)return;
+
+  // Paddle 1 (local player / host)
+  const dx1=mousePos.x-paddle1.x, dy1=mousePos.y-paddle1.y;
+  paddle1.vx=dx1*0.25; paddle1.vy=dy1*0.25;
+  // In online mode: host controls left half, guest controls LEFT half too (but mirrored)
+  let p1minX=paddle1.r, p1maxX=W/2-paddle1.r;
+  if(gameMode==='online'&&!isHost){ p1minX=paddle1.r; p1maxX=W/2-paddle1.r; }
+  paddle1.x=Math.max(p1minX,Math.min(p1maxX,paddle1.x+paddle1.vx));
+  paddle1.y=Math.max(paddle1.r,Math.min(H-paddle1.r,paddle1.y+paddle1.vy));
+
+  // Paddle 2
+  if(gameMode==='local') {
+    if(p2Touch){ paddle2.vx=(p2Touch.x-paddle2.x)*.25; paddle2.vy=(p2Touch.y-paddle2.y)*.25; }
+    else { const ks=8; paddle2.vx=(p2Keys.d?ks:p2Keys.a?-ks:0); paddle2.vy=(p2Keys.s?ks:p2Keys.w?-ks:0); }
+    paddle2.x=Math.max(W/2+paddle2.r,Math.min(W-paddle2.r,paddle2.x+paddle2.vx));
+    paddle2.y=Math.max(paddle2.r,Math.min(H-paddle2.r,paddle2.y+paddle2.vy));
+  } else if(gameMode==='online'&&isHost) {
+    // Host: paddle2 position comes from guest via network (handleNetData updates it)
+    // Just clamp it
+    paddle2.x=Math.max(W/2+paddle2.r,Math.min(W-paddle2.r,paddle2.x));
+    paddle2.y=Math.max(paddle2.r,Math.min(H-paddle2.r,paddle2.y));
+  } else if(gameMode==='sp') {
+    updateAI();
+  }
+  // Online guest: puck & paddle2 positions come from host via network
+
+  // Puck physics (host runs physics; guest just renders received state)
+  if(gameMode==='online'&&!isHost) return;
+
+  puck.vx*=FRICTION; puck.vy*=FRICTION;
+  puck.x+=puck.vx; puck.y+=puck.vy;
+
+  // Wall bounce
+  if(puck.y-puck.r<0){ puck.y=puck.r; puck.vy=Math.abs(puck.vy)*.95; }
+  if(puck.y+puck.r>H){ puck.y=H-puck.r; puck.vy=-Math.abs(puck.vy)*.95; }
+
+  // Goals
+  const gt=H*.3, gb=H*.7, inY=puck.y>gt&&puck.y<gb;
+  if(puck.x-puck.r<0&&inY){ applyGoal(2,true); return; }
+  else if(puck.x-puck.r<0){ puck.x=puck.r; puck.vx=Math.abs(puck.vx)*.8; }
+  if(puck.x+puck.r>W&&inY){ applyGoal(1,true); return; }
+  else if(puck.x+puck.r>W){ puck.x=W-puck.r; puck.vx=-Math.abs(puck.vx)*.8; }
+
+  collidePaddle(paddle1); collidePaddle(paddle2);
+}
+
+function updateAI() {
+  let px=puck.x,py=puck.y,pvx=puck.vx,pvy=puck.vy;
+  for(let i=0;i<20;i++){ px+=pvx;py+=pvy;pvx*=FRICTION;pvy*=FRICTION; if(py<puck.r||py>H-puck.r)pvy*=-1; }
+  if(difficulty==='easy'){ aiTarget.x=W*.75;aiTarget.y=puck.y; }
+  else if(difficulty==='medium'){ if(puck.vx>0){aiTarget.x=W*.78;aiTarget.y=py;}else{aiTarget.x=W*.75;aiTarget.y=H/2;} }
+  else { if(puck.vx>-2){aiTarget.x=Math.min(W-paddle2.r,px+30);aiTarget.y=py;}else{aiTarget.x=W*.75;aiTarget.y=H/2;} }
+  const dx=aiTarget.x-paddle2.x,dy=aiTarget.y-paddle2.y,dist=Math.hypot(dx,dy);
+  if(dist>0){ const s=Math.min(aiSpeed,dist); paddle2.vx=(dx/dist)*s; paddle2.vy=(dy/dist)*s; }
+  paddle2.x=Math.max(W/2+paddle2.r,Math.min(W-paddle2.r,paddle2.x+paddle2.vx));
+  paddle2.y=Math.max(paddle2.r,Math.min(H-paddle2.r,paddle2.y+paddle2.vy));
+}
+
+function collidePaddle(p) {
+  if(!p)return;
+  const dx=puck.x-p.x,dy=puck.y-p.y,dist=Math.hypot(dx,dy),min=puck.r+p.r;
+  if(dist<min&&dist>0){
+    const nx=dx/dist,ny=dy/dist,ov=min-dist;
+    puck.x+=nx*ov*.8; puck.y+=ny*ov*.8;
+    const dvx=puck.vx-p.vx,dvy=puck.vy-p.vy,dot=dvx*nx+dvy*ny;
+    puck.vx=puck.vx-1.5*dot*nx+p.vx*.5;
+    puck.vy=puck.vy-1.5*dot*ny+p.vy*.5;
+    const spd=Math.hypot(puck.vx,puck.vy),max=W*.025;
+    if(spd>max){puck.vx=puck.vx/spd*max;puck.vy=puck.vy/spd*max;}
+    if(spd<2){puck.vx+=nx*3;puck.vy+=ny*3;}
+    playSound('hit');
+  }
+}
+
+// ===== GOALS =====
+function applyGoal(player, broadcast) {
+  if(scoringLock)return;
+  scoringLock=true;
+  playSound('goal');
+
+  if(broadcast && gameMode==='online' && isHost && conn && onlineReady) {
+    conn.send({ type:'goal', player });
+  }
+
+  if(player===1){ score1++; } else { score2++; }
+
+  // Update display: player1 = host, player2 = guest
+  // Each player sees THEIR score on the left (myScore)
+  if(gameMode==='online') {
+    const myRawScore  = isHost ? score1 : score2;
+    const oppRawScore = isHost ? score2 : score1;
+    document.getElementById('myScore').textContent  = myRawScore;
+    document.getElementById('oppScore').textContent = oppRawScore;
+  } else {
+    // SP/Local: score1 = left paddle, score2 = right paddle
+    document.getElementById('myScore').textContent  = score1;
+    document.getElementById('oppScore').textContent = score2;
+  }
+
+  // Goal flash — show whose goal it was from MY perspective
+  const iMyGoal = gameMode==='online' ? (isHost ? player===1 : player===2) : player===1;
+  showGoalFlash(iMyGoal ? 1 : 2);
+
+  if(score1>=scoreLimit||score2>=scoreLimit){ setTimeout(()=>showGameOver(),1200); return; }
+  setTimeout(()=>{ initObjects(); puck.vx=(player===1?1:-1)*4; puck.vy=(Math.random()>.5?1:-1)*2; scoringLock=false; },1200);
+}
+
+function showGoalFlash(p) {
+  const el=document.getElementById('goalFlash');
+  el.className='goal-flash show p'+p;
+  el.textContent='⚡ שער!';
+  setTimeout(()=>el.className='goal-flash',1200);
+}
+
+function showGameOver() {
+  gameRunning=false;
+  const title=document.getElementById('goTitle');
+  document.getElementById('goScore1').textContent=score1;
+  document.getElementById('goScore2').textContent=score2;
+
+  if(gameMode==='online') {
+    const iWon = (isHost&&score1>score2)||(!isHost&&score2>score1);
+    title.textContent = iWon ? '🏆 ניצחת!' : '😔 הפסדת';
+    title.className = 'overlay-title ' + (iWon?'win':'lose');
+    document.getElementById('goSub').textContent = iWon ? 'כל הכבוד!' : 'נסה שוב!';
+  } else if(score1>score2) {
+    title.textContent=gameMode==='sp'?'🏆 ניצחת!':'🏆 שחקן 1 ניצח!';
+    title.className='overlay-title win';
+    document.getElementById('goSub').textContent=gameMode==='sp'?'כל הכבוד!':'';
+  } else {
+    title.textContent=gameMode==='sp'?'😔 הפסדת':'🏆 שחקן 2 ניצח!';
+    title.className='overlay-title lose';
+    document.getElementById('goSub').textContent=gameMode==='sp'?'נסה שוב!':'';
+  }
+  document.getElementById('gameOverOverlay').classList.add('active');
+  playSound('win');
+}
+
+function restartGame() {
+  hideOverlays(); scoringLock=false;
+  if(gameMode==='online') {
+    score1=0; score2=0;
+    document.getElementById('myScore').textContent='0';
+    document.getElementById('oppScore').textContent='0';
+    initObjects(); gameRunning=true;
+    if(isHost&&conn&&onlineReady) conn.send({type:'restart'});
+  } else {
+    startGame(gameMode);
+  }
+}
+
+// ===== DRAW =====
+function draw() {
+  if(!puck)return;
+  ctx.clearRect(0,0,W,H);
+  const grad=ctx.createLinearGradient(0,0,W,H);
+  grad.addColorStop(0,'#060620'); grad.addColorStop(1,'#0a0a2e');
+  ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+
+  // Goals
+  const gt=H*.3,gH=H*.4;
+  drawGoal(0,gt,gH,'rgba(0,245,255,0.08)','rgba(0,245,255,0.6)');
+  drawGoal(W-8,gt,gH,'rgba(191,0,255,0.08)','rgba(191,0,255,0.6)');
+
+  // Center
+  ctx.save();
+  ctx.strokeStyle='rgba(255,255,255,.07)'; ctx.lineWidth=2; ctx.setLineDash([8,8]);
+  ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
+  ctx.setLineDash([]); ctx.beginPath(); ctx.arc(W/2,H/2,H*.18,0,Math.PI*2); ctx.stroke();
+  ctx.restore();
+
+  drawPaddle(paddle1,'#00f5ff');
+  drawPaddle(paddle2,'#bf00ff');
+  drawPuck();
+}
+
+function drawGoal(x,y,h,fill,stroke) {
+  ctx.save();
+  ctx.fillStyle=fill; ctx.shadowColor=stroke; ctx.shadowBlur=15;
+  ctx.fillRect(x,y,8,h);
+  ctx.strokeStyle=stroke; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+(x===0?20:-20),y);
+  ctx.moveTo(x,y+h); ctx.lineTo(x+(x===0?20:-20),y+h); ctx.stroke();
+  ctx.restore();
+}
+
+function drawPaddle(p,color) {
+  ctx.save();
+  ctx.shadowColor=color; ctx.shadowBlur=20;
+  ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+  const g=ctx.createRadialGradient(p.x,p.y,p.r*.2,p.x,p.y,p.r);
+  g.addColorStop(0,color+'ff'); g.addColorStop(.6,color+'88'); g.addColorStop(1,color+'22');
+  ctx.fillStyle=g; ctx.fill();
+  ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+  ctx.beginPath(); ctx.arc(p.x,p.y,p.r*.45,0,Math.PI*2);
+  ctx.strokeStyle=color+'aa'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(p.x,p.y,p.r*.12,0,Math.PI*2);
+  ctx.fillStyle=color; ctx.fill();
+  ctx.restore();
+}
+
+function drawPuck() {
+  ctx.save();
+  ctx.shadowColor='#fff'; ctx.shadowBlur=15;
+  ctx.beginPath(); ctx.arc(puck.x,puck.y,puck.r,0,Math.PI*2);
+  const g=ctx.createRadialGradient(puck.x-puck.r*.3,puck.y-puck.r*.3,0,puck.x,puck.y,puck.r);
+  g.addColorStop(0,'#fff'); g.addColorStop(.5,'#aac'); g.addColorStop(1,'#446');
+  ctx.fillStyle=g; ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1.5; ctx.stroke();
+  const spd=Math.hypot(puck.vx,puck.vy);
+  if(spd>3){
+    ctx.globalAlpha=.3; ctx.beginPath(); ctx.arc(puck.x-puck.vx*2,puck.y-puck.vy*2,puck.r*.6,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+    ctx.globalAlpha=.15; ctx.beginPath(); ctx.arc(puck.x-puck.vx*4,puck.y-puck.vy*4,puck.r*.35,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ===== AUDIO =====
+let audioCtx=null;
+function getAC(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function playSound(t){
+  try{
+    const ac=getAC();
+    if(t==='hit'){
+      const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);
+      o.frequency.setValueAtTime(200,ac.currentTime);o.frequency.exponentialRampToValueAtTime(80,ac.currentTime+.08);
+      g.gain.setValueAtTime(.15,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.1);
+      o.start();o.stop(ac.currentTime+.1);
+    }else if(t==='goal'){
+      [330,440,550].forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=f;g.gain.setValueAtTime(.2,ac.currentTime+i*.1);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+i*.1+.3);o.start(ac.currentTime+i*.1);o.stop(ac.currentTime+i*.1+.3);});
+    }else if(t==='win'){
+      [523,659,784,1047].forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=f;g.gain.setValueAtTime(.15,ac.currentTime+i*.12);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+i*.12+.25);o.start(ac.currentTime+i*.12);o.stop(ac.currentTime+i*.12+.3);});
+    }
+  }catch(e){}
+}
+
+// ===== TOAST =====
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ===== RESIZE =====
+window.addEventListener('resize',()=>{
+  if(gameRunning&&W){
+    const prev=W; resizeCanvas(); const sc=W/prev;
+    if(puck){puck.x*=sc;puck.y*=sc;puck.vx*=sc;puck.vy*=sc;puck.r=W*PUCK_R;}
+    if(paddle1){paddle1.x*=sc;paddle1.y*=sc;paddle1.r=W*PAD_R;}
+    if(paddle2){paddle2.x*=sc;paddle2.y*=sc;paddle2.r=W*PAD_R;}
+    mousePos.x*=sc;mousePos.y*=sc;
+  }
+});
+
+// ===== AUTO JOIN FROM URL =====
+(function(){
+  const p=new URLSearchParams(window.location.search);
+  if(p.get('join')){
+    showScreen('onlineScreen');
+    switchOnlineTab('join');
+    document.getElementById('joinCodeInput').value=p.get('join').toUpperCase();
+    showToast('✓ קוד זוהה — לחץ להצטרפות!');
+  }
+})();
+</script>
+</body>
+</html>
